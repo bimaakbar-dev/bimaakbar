@@ -8,6 +8,7 @@ import type {
 import { getRepoInfo, listRepos } from '../lib/github';
 
 async function fetchWorkerStats(
+  env: Env,
   id: string,
   url: string
 ): Promise<WorkerInfo> {
@@ -17,7 +18,16 @@ async function fetchWorkerStats(
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
 
-    const res = await fetch(`${url}/stats`, { signal: ctrl.signal });
+    let res: Response;
+
+    if (id === 'w1') {
+      res = await env.WORKER_1.fetch(`${url}/stats`, {
+        signal: ctrl.signal,
+      } as RequestInit);
+    } else {
+      res = await fetch(`${url}/stats`, { signal: ctrl.signal });
+    }
+
     clearTimeout(timer);
 
     if (!res.ok) {
@@ -86,7 +96,7 @@ export const statusCommand: Command = {
       lines.push('  (tidak ada worker terdaftar)');
     } else {
       const results = await Promise.all(
-        workers.map((w) => fetchWorkerStats(w.id, w.url))
+        workers.map((w) => fetchWorkerStats(ctx.env, w.id, w.url))
       );
 
       let totalFetched = 0;
