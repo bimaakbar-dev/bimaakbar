@@ -13,9 +13,6 @@ database_id = "e0d4eadf-3ec3-4a15-bdbc-ec6abe415191"
 [observability]
 enabled = true
 
-[triggers]
-crons = ["0 */6 * * *"]
-
 [vars]
 TELEGRAM_CHAT_ID = "1605070949"
 
