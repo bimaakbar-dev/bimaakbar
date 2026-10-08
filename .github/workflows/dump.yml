@@ -1,4 +1,4 @@
-name: Dump isi repo
+name: Dump Project
 
 on:
   workflow_dispatch:
