@@ -221,7 +221,7 @@ export default {
     }
 
     if (path === '/setup') {
-      return handleSetup(request, env, url);
+      return handleSetup(env, url);
     }
 
     if (path === '/webhook' && request.method === 'POST') {
