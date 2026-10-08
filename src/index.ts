@@ -205,6 +205,24 @@ async function handleSetup(env: Env, url: URL): Promise<Response> {
     ]);
     return jsonResponse({ ok: true, logsDeleted: logs, limitsDeleted: limits });
   }
+  if (action === 'set-commands') {
+  const cmds = getAllCommands();
+  const res = await fetch(
+    `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/setMyCommands`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        commands: cmds.map((c) => ({
+          command: c.name,
+          description: c.description.slice(0, 256),
+        })),
+      }),
+    }
+  );
+  const data = await res.json();
+  return jsonResponse({ ok: true, telegram: data });
+}
 
   return jsonResponse({ error: 'unknown action' }, 400);
 }
