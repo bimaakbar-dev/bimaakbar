@@ -8,7 +8,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "bimaakbar-db"
-database_id = "GANTI_DENGAN_DATABASE_ID"
+database_id = "e0d4eadf-3ec3-4a15-bdbc-ec6abe415191"
 
 [observability]
 enabled = true
