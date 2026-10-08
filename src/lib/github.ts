@@ -30,10 +30,21 @@ interface CommitApiResponse {
 
 interface WorkflowRunApiResponse {
   workflow_runs: {
+    id: number;
     name: string;
     status: string;
     conclusion: string | null;
     created_at: string;
+    html_url: string;
+  }[];
+}
+
+interface WorkflowsListResponse {
+  workflows: {
+    id: number;
+    name: string;
+    path: string;
+    state: string;
   }[];
 }
 
@@ -100,6 +111,22 @@ export async function listRepos(env: Env): Promise<string[]> {
     .filter(Boolean);
 }
 
+export async function listWorkflows(
+  env: Env,
+  repoFullName: string
+): Promise<{ name: string; path: string; state: string }[]> {
+  const url = `${API_BASE}/repos/${repoFullName}/actions/workflows`;
+  const res = await fetch(url, { headers: await headers(env) });
+  if (!res.ok) return [];
+
+  const data = (await res.json()) as WorkflowsListResponse;
+  return (data.workflows ?? []).map((w) => ({
+    name: w.name,
+    path: w.path,
+    state: w.state,
+  }));
+}
+
 export async function triggerWorkflow(
   env: Env,
   repoFullName: string,
@@ -123,6 +150,31 @@ export async function triggerWorkflow(
   }
 
   return { ok: true };
+}
+
+export async function getLatestRun(
+  env: Env,
+  repoFullName: string
+): Promise<{
+  name: string;
+  status: string;
+  conclusion: string | null;
+  url: string;
+} | null> {
+  const url = `${API_BASE}/repos/${repoFullName}/actions/runs?per_page=1`;
+  const res = await fetch(url, { headers: await headers(env) });
+  if (!res.ok) return null;
+
+  const data = (await res.json()) as WorkflowRunApiResponse;
+  const r = data.workflow_runs[0];
+  if (!r) return null;
+
+  return {
+    name: r.name,
+    status: r.status,
+    conclusion: r.conclusion,
+    url: r.html_url,
+  };
 }
 
 export async function getFile(
