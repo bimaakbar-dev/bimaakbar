@@ -1,4 +1,10 @@
-import type { Command, CommandContext, Env, WorkerInfo, WorkerStats } from '../types';
+import type {
+  Command,
+  CommandContext,
+  Env,
+  WorkerInfo,
+  WorkerStats,
+} from '../types';
 import { getAllCommands } from '../lib/router';
 import { getRepoInfo, listRepos } from '../lib/github';
 import { sendMessage } from '../lib/telegram';
@@ -29,17 +35,6 @@ async function fetchWorkerStats(
     info.error = (err as Error).message ?? 'unknown';
     return info;
   }
-}
-
-function parseWorkers(env: Env): { id: string; url: string }[] {
-  return env.WORKERS.split(',')
-    .map((w) => w.trim())
-    .filter(Boolean)
-    .map((w) => {
-      const [id, url] = w.split(':');
-      return { id: id ?? '', url: url ?? '' };
-    })
-    .filter((w) => w.id && w.url);
 }
 
 function parseWorkersWithProtocol(env: Env): { id: string; url: string }[] {
@@ -106,7 +101,7 @@ const statusCommand: Command = {
       lines.push('  (tidak ada worker terdaftar)');
     } else {
       const results = await Promise.all(
-        workers.map((w) => fetchWorkerStats(ctx.env, w.id, w.url))
+        workers.map((w) => fetchWorkerStats(w.id, w.url))
       );
 
       let totalFetched = 0;
@@ -201,5 +196,3 @@ export async function sendCommandList(env: Env): Promise<void> {
     parseMode: 'HTML',
   });
 }
-
-void parseWorkers;
