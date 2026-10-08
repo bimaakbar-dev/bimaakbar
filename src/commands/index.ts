@@ -4,7 +4,6 @@ import { getRepoInfo, listRepos } from '../lib/github';
 import { sendMessage } from '../lib/telegram';
 
 async function fetchWorkerStats(
-  env: Env,
   id: string,
   url: string
 ): Promise<WorkerInfo> {
@@ -51,7 +50,6 @@ function parseWorkersWithProtocol(env: Env): { id: string; url: string }[] {
       const idx = w.indexOf(':');
       const afterId = w.slice(idx + 1);
       const id = w.slice(0, idx);
-      // afterId bisa ":http://..." atau langsung "http://..."
       const url = afterId.startsWith('//')
         ? afterId.slice(2)
         : afterId.startsWith(':')
