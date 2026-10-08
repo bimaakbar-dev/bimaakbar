@@ -48,32 +48,60 @@ export async function sendMessage(
   }
 }
 
-export async function setWebhook(
+export async function sendMessageSplit(
   env: Env,
-  webhookUrl: string
-): Promise<{ ok: boolean; description?: string }> {
-  const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/setWebhook`;
+  chatId: number,
+  text: string,
+  parseMode: 'HTML' = 'HTML'
+): Promise<void> {
+  const MAX = 4000;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      url: webhookUrl,
-      secret_token: env.TELEGRAM_WEBHOOK_SECRET,
-      allowed_updates: ['message'],
-      drop_pending_updates: true,
-    }),
-  });
+  if (text.length <= MAX) {
+    await sendMessage(env, { chatId, text, parseMode });
+    return;
+  }
 
-  const data = (await res.json()) as { ok: boolean; description?: string };
-  return data;
+  const parts: string[] = [];
+  let current = '';
+
+  for (const line of text.split('\n')) {
+    if (current.length + line.length + 1 > MAX) {
+      parts.push(current);
+      current = line;
+    } else {
+      current = current ? `${current}\n${line}` : line;
+    }
+  }
+  if (current) parts.push(current);
+
+  for (let i = 0; i < parts.length; i++) {
+    const header =
+      parts.length > 1 ? `<i>[${i + 1}/${parts.length}]</i>\n` : '';
+    await sendMessage(env, {
+      chatId,
+      text: header + parts[i],
+      parseMode,
+    });
+  }
 }
 
-export async function deleteWebhook(env: Env): Promise<boolean> {
-  const url = `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/deleteWebhook`;
-  const res = await fetch(url, { method: 'POST' });
-  const data = (await res.json()) as { ok: boolean };
-  return data.ok;
+export async function sendTyping(
+  env: Env,
+  chatId: number
+): Promise<void> {
+  if (!env.TELEGRAM_BOT_TOKEN) return;
+
+  try {
+    await fetch(
+      `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendChatAction`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, action: 'typing' }),
+      }
+    );
+  } catch {
+  }
 }
 
 export function escapeHtml(s: string): string {
