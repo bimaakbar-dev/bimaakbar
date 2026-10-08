@@ -1,0 +1,27 @@
+#:schema node_modules/wrangler/config-schema.json
+
+name = "bimaakbar"
+main = "src/index.ts"
+compatibility_date = "2026-10-08"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bimaakbar-db"
+database_id = "GANTI_DENGAN_DATABASE_ID"
+
+[observability]
+enabled = true
+
+[triggers]
+crons = ["0 */6 * * *"]
+
+[vars]
+TELEGRAM_CHAT_ID = "1605070949"
+
+REPOS = "bimaakbar-dev/yukionime,bimaakbar-dev/yukio-data,bimaakbar-dev/yukio-api,orchixs/yukio-api,bimaakbar-dev/yukio-bot,bimaakbar-dev/qimochi"
+WORKERS = "w1:https://yukio-api.bimaakbar.workers.dev,w2:http://yukio-api.codeskycloud.workers.dev"
+
+[dev]
+port = 8787
+local_protocol = "http"
