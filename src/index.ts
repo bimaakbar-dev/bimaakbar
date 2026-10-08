@@ -73,7 +73,6 @@ async function handleTelegram(
     try {
       const reply = await route(env, ctx);
 
-      // Split kalau panjang (> 4000 char)
       const MAX = 4000;
       if (reply.length <= MAX) {
         await sendMessage(env, {
@@ -213,22 +212,19 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // Root — health check
     if (path === '/' || path === '/health') {
       return jsonResponse({
         status: 'ok',
-        service: 'yukio-admin',
+        service: 'bimaakbar',
         commands: getAllCommands().map((c) => c.name),
         timestamp: new Date().toISOString(),
       });
     }
 
-    // Setup endpoint
     if (path === '/setup') {
       return handleSetup(request, env, url);
     }
 
-    // Telegram webhook
     if (path === '/webhook' && request.method === 'POST') {
       return handleTelegram(request, env);
     }
