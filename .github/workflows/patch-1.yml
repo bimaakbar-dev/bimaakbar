@@ -1,0 +1,60 @@
+name: Add Service Binding
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update wrangler.toml
+        run: |
+          python3 << 'PYEOF'
+          from pathlib import Path
+          p = Path('wrangler.toml')
+          s = p.read_text()
+          if '[[services]]' in s:
+              print('SKIP: sudah ada')
+          else:
+              block = '\n[[services]]\nbinding = "WORKER_1"\nservice = "yukio-api"\n'
+              if '\n[dev]' in s:
+                  s = s.replace('\n[dev]', block + '\n[dev]')
+              else:
+                  s = s.rstrip() + '\n' + block
+              p.write_text(s)
+              print('OK: wrangler.toml')
+          PYEOF
+
+      - name: Update src/types.ts
+        run: |
+          python3 << 'PYEOF'
+          from pathlib import Path
+          p = Path('src/types.ts')
+          s = p.read_text()
+          if 'WORKER_1: Fetcher' in s:
+              print('SKIP: sudah ada')
+          else:
+              s = s.replace(
+                  '  DB: D1Database;',
+                  '  DB: D1Database;\n  WORKER_1: Fetcher;'
+              )
+              p.write_text(s)
+              print('OK: types.ts')
+          PYEOF
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --staged --quiet; then
+            echo "No changes"
+          else
+            git commit -m "feat: add WORKER_1 service binding"
+            git push
+          fi
