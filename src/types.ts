@@ -1,5 +1,6 @@
 export interface Env {
   DB: D1Database;
+  WORKER_1: Fetcher;
 
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_CHAT_ID: string;
