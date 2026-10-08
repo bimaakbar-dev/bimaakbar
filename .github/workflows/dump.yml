@@ -20,7 +20,7 @@ jobs:
         env:
           MAX_KB: ${{ inputs.max_kb }}
         run: |
-          OUT=repo-dump.txt
+          OUT=dump.txt
           MAX=$(( ${MAX_KB:-200} * 1024 ))
           SKIP='(^|/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?)$'
 
