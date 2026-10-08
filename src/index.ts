@@ -24,7 +24,6 @@ function jsonResponse(data: unknown, status = 200): Response {
 }
 
 async function handleTelegram(
-  request: Request,
   env: Env
 ): Promise<Response> {
   const secret = request.headers.get('X-Telegram-Bot-Api-Secret-Token');
