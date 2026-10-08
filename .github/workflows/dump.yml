@@ -72,12 +72,12 @@ jobs:
             echo "Dilewati: $(wc -l < skipped.txt) file"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Simpan hasil ke branch repo-dump
+      - name: Simpan hasil ke branch dump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git checkout --orphan repo-dump
+          git checkout --orphan dump
           git rm -rf --quiet .
           git add dump.txt
           git commit -m "Dump isi repo @ ${GITHUB_SHA::7}"
