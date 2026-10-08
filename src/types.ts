@@ -89,11 +89,8 @@ export interface WorkerInfo {
   error?: string;
 }
 
-export interface CommandLog {
-  id: number;
-  chat_id: number;
+export interface RateLimitRow {
   user_id: number;
-  command: string;
-  args: string;
-  created_at: number;
+  count: number;
+  window_start: number;
 }
