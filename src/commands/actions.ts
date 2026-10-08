@@ -7,7 +7,9 @@ import type {
 import { listRepos, triggerWorkflow } from '../lib/github';
 import { parseWorkers } from './status';
 
-async function fetchWorker(
+async function workerFetch(
+  env: Env,
+  id: string,
   url: string,
   path: string,
   method = 'GET'
@@ -16,10 +18,20 @@ async function fetchWorker(
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
 
-    const res = await fetch(`${url}${path}`, {
-      method,
-      signal: ctrl.signal,
-    });
+    let res: Response;
+
+    if (id === 'w1') {
+      res = await env.WORKER_1.fetch(`${url}${path}`, {
+        method,
+        signal: ctrl.signal,
+      } as RequestInit);
+    } else {
+      res = await fetch(`${url}${path}`, {
+        method,
+        signal: ctrl.signal,
+      });
+    }
+
     clearTimeout(timer);
 
     const body = await res.text();
@@ -57,7 +69,7 @@ export const runCommand: Command = {
       return `❌ Worker <code>${id}</code> tidak ditemukan.`;
     }
 
-    const result = await fetchWorker(worker.url, '/run');
+    const result = await workerFetch(ctx.env, worker.id, worker.url, '/run');
 
     if (!result.ok) {
       return `❌ Worker <b>${id}</b> gagal (HTTP ${result.status}):\n<code>${result.body.slice(0, 300)}</code>`;
@@ -89,7 +101,7 @@ export const runCommand: Command = {
         `   Refilled: ${r.refilled}`
       );
     } catch {
-      return `✅ Worker <b>${id}</b> dipicu (response tidak valid JSON).`;
+      return `✅ Worker <b>${id}</b> dipicu.`;
     }
   },
 };
@@ -121,6 +133,7 @@ export const deployCommand: Command = {
       'bimaakbar-dev/yukio-data': 'notify-frontend.yml',
       'orchixs/yukio-api': 'deploy.yml',
       'bimaakbar-dev/yukio-bot': 'deploy.yml',
+      'bimaakbar-dev/bimaakbar': 'deploy.yml',
     };
 
     const wf = workflows[repoFull];
@@ -154,7 +167,12 @@ export const errorsCommand: Command = {
       return `❌ Worker <code>${id}</code> tidak ditemukan.`;
     }
 
-    const result = await fetchWorker(worker.url, '/errors?limit=10');
+    const result = await workerFetch(
+      ctx.env,
+      worker.id,
+      worker.url,
+      '/errors?limit=10'
+    );
 
     if (!result.ok) {
       return `❌ Gagal ambil errors (HTTP ${result.status}).`;
@@ -186,7 +204,7 @@ export const errorsCommand: Command = {
 
       return lines.join('\n');
     } catch {
-      return `⚠️ Response tidak valid: ${result.body.slice(0, 200)}`;
+      return `⚠️ Response tidak valid.`;
     }
   },
 };
@@ -207,7 +225,12 @@ export const cleanCommand: Command = {
       return `❌ Worker <code>${id}</code> tidak ditemukan.`;
     }
 
-    const result = await fetchWorker(worker.url, '/reset-failed', 'GET');
+    const result = await workerFetch(
+      ctx.env,
+      worker.id,
+      worker.url,
+      '/reset-failed'
+    );
 
     if (!result.ok) {
       return `❌ Gagal reset (HTTP ${result.status}).`;
@@ -237,7 +260,7 @@ export const workersCommand: Command = {
     lines.push('');
 
     for (const w of workers) {
-      const result = await fetchWorker(w.url, '/stats');
+      const result = await workerFetch(ctx.env, w.id, w.url, '/stats');
 
       if (!result.ok) {
         lines.push(`❌ <b>${w.id}</b> — HTTP ${result.status}`);
