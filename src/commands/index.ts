@@ -62,17 +62,13 @@ function parseWorkersWithProtocol(env: Env): { id: string; url: string }[] {
     .filter((w) => w.id && w.url);
 }
 
-/* ============================================================
-   /help
-   ============================================================ */
-
 const helpCommand: Command = {
   name: 'help',
   description: 'Daftar command',
   handler: async (): Promise<string> => {
     const cmds = getAllCommands();
     const lines: string[] = [];
-    lines.push('🤖 <b>Yukio Admin Bot</b>');
+    lines.push('🤖 <b>Bima Akbar[bot]</b>');
     lines.push('');
     lines.push('<b>Commands:</b>');
     for (const c of cmds) {
@@ -83,10 +79,6 @@ const helpCommand: Command = {
     return lines.join('\n');
   },
 };
-
-/* ============================================================
-   /repos
-   ============================================================ */
 
 const reposCommand: Command = {
   name: 'repos',
@@ -103,17 +95,12 @@ const reposCommand: Command = {
   },
 };
 
-/* ============================================================
-   /status
-   ============================================================ */
-
 const statusCommand: Command = {
   name: 'status',
   description: 'Status semua repo + worker scraper',
   handler: async (ctx: CommandContext): Promise<string> => {
     const lines: string[] = [];
 
-    /* ── Workers ───────────────────────────── */
     lines.push('📊 <b>Workers</b>');
     const workers = parseWorkersWithProtocol(ctx.env);
 
@@ -157,7 +144,6 @@ const statusCommand: Command = {
 
     lines.push('');
 
-    /* ── Repos ──────────────────────────────── */
     lines.push('📁 <b>Repos</b>');
     const repoList = await listRepos(ctx.env);
 
@@ -197,10 +183,6 @@ const statusCommand: Command = {
   },
 };
 
-/* ============================================================
-   EXPORT
-   ============================================================ */
-
 export const allCommands: Command[] = [
   helpCommand,
   reposCommand,
@@ -210,7 +192,7 @@ export const allCommands: Command[] = [
 export async function sendCommandList(env: Env): Promise<void> {
   const cmds = getAllCommands();
   const lines: string[] = [];
-  lines.push('🤖 <b>Yukio Admin Bot</b>');
+  lines.push('🤖 <b>Bima Akbar[bot]</b>');
   lines.push('');
   for (const c of cmds) {
     lines.push(`• /${c.name} — ${c.description}`);
