@@ -3,10 +3,9 @@ import type {
   TelegramUpdate,
   CommandContext,
 } from './types';
-import { registerAll, route } from './lib/router';
+import { registerAll, route, getAllCommands } from './lib/router';
 import { allCommands } from './commands';
 import { sendMessage } from './lib/telegram';
-import { getAllCommands } from './lib/router';
 
 registerAll(allCommands);
 
@@ -28,10 +27,7 @@ async function handleTelegram(
   env: Env
 ): Promise<Response> {
   const secret = request.headers.get('X-Telegram-Bot-Api-Secret-Token');
-  if (
-    env.TELEGRAM_WEBHOOK_SECRET &&
-    secret !== env.TELEGRAM_WEBHOOK_SECRET
-  ) {
+  if (env.TELEGRAM_WEBHOOK_SECRET && secret !== env.TELEGRAM_WEBHOOK_SECRET) {
     return new Response('Unauthorized', { status: 401 });
   }
 
@@ -69,54 +65,48 @@ async function handleTelegram(
     env,
   };
 
-  const process = (async () => {
-    try {
-      const reply = await route(env, ctx);
+  try {
+    const reply = await route(env, ctx);
 
-      const MAX = 4000;
-      if (reply.length <= MAX) {
-        await sendMessage(env, {
-          chatId,
-          text: reply,
-          parseMode: 'HTML',
-        });
-      } else {
-        const parts: string[] = [];
-        let current = '';
-        for (const line of reply.split('\n')) {
-          if (current.length + line.length + 1 > MAX) {
-            parts.push(current);
-            current = line;
-          } else {
-            current = current ? `${current}\n${line}` : line;
-          }
-        }
-        if (current) parts.push(current);
-
-        for (let i = 0; i < parts.length; i++) {
-          const header =
-            parts.length > 1
-              ? `<i>[${i + 1}/${parts.length}]</i>\n`
-              : '';
-          await sendMessage(env, {
-            chatId,
-            text: header + parts[i],
-            parseMode: 'HTML',
-          });
-        }
-      }
-    } catch (err) {
-      console.error('[Webhook] processing error:', err);
-      const msg = (err as Error).message ?? 'unknown';
+    const MAX = 4000;
+    if (reply.length <= MAX) {
       await sendMessage(env, {
         chatId,
-        text: `❌ Error: <code>${msg.slice(0, 200)}</code>`,
+        text: reply,
         parseMode: 'HTML',
       });
-    }
-  })();
+    } else {
+      const parts: string[] = [];
+      let current = '';
+      for (const line of reply.split('\n')) {
+        if (current.length + line.length + 1 > MAX) {
+          parts.push(current);
+          current = line;
+        } else {
+          current = current ? `${current}\n${line}` : line;
+        }
+      }
+      if (current) parts.push(current);
 
-  await process;
+      for (let i = 0; i < parts.length; i++) {
+        const header =
+          parts.length > 1 ? `<i>[${i + 1}/${parts.length}]</i>\n` : '';
+        await sendMessage(env, {
+          chatId,
+          text: header + parts[i],
+          parseMode: 'HTML',
+        });
+      }
+    }
+  } catch (err) {
+    console.error('[Webhook] processing error:', err);
+    const errMsg = (err as Error).message ?? 'unknown';
+    await sendMessage(env, {
+      chatId,
+      text: `❌ Error: <code>${errMsg.slice(0, 200)}</code>`,
+      parseMode: 'HTML',
+    });
+  }
 
   return jsonResponse({ ok: true });
 }
@@ -143,17 +133,12 @@ async function runCronReport(env: Env): Promise<void> {
       text: header + reply,
       parseMode: 'HTML',
     });
-
-    console.log('[Cron] report sent');
   } catch (err) {
     console.error('[Cron] report failed:', err);
   }
 }
 
-async function handleSetup(
-  env: Env,
-  url: URL
-): Promise<Response> {
+async function handleSetup(env: Env, url: URL): Promise<Response> {
   const action = url.searchParams.get('action');
 
   if (action === 'set-webhook') {
@@ -172,11 +157,7 @@ async function handleSetup(
       }
     );
     const data = await res.json();
-    return jsonResponse({
-      ok: true,
-      webhook: webhookUrl,
-      telegram: data,
-    });
+    return jsonResponse({ ok: true, webhook: webhookUrl, telegram: data });
   }
 
   if (action === 'delete-webhook') {
@@ -201,6 +182,11 @@ async function handleSetup(
       text: '🧪 Test notif dari Bima Akbar[bot]',
     });
     return jsonResponse({ ok: true, sent: true });
+  }
+
+  if (action === 'report') {
+    await runCronReport(env);
+    return jsonResponse({ ok: true, reported: true });
   }
 
   return jsonResponse({ error: 'unknown action' }, 400);
@@ -229,13 +215,5 @@ export default {
     }
 
     return new Response('Not Found', { status: 404 });
-  },
-
-  async scheduled(
-    _controller: ScheduledController,
-    env: Env,
-    ctx: ExecutionContext
-  ): Promise<void> {
-    ctx.waitUntil(runCronReport(env));
   },
 } satisfies ExportedHandler<Env>;
