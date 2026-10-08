@@ -1,11 +1,8 @@
-import type {
-  Env,
-  TelegramUpdate,
-  CommandContext,
-} from './types';
+import type { Env, TelegramUpdate, CommandContext } from './types';
 import { registerAll, route, getAllCommands } from './lib/router';
 import { allCommands } from './commands';
-import { sendMessage } from './lib/telegram';
+import { sendMessage, sendTyping } from './lib/telegram';
+import { cleanupOldLogs, cleanupRateLimits } from './lib/state';
 
 registerAll(allCommands);
 
@@ -16,7 +13,7 @@ function isAuthorized(env: Env, userId: number): boolean {
 }
 
 function jsonResponse(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), {
+  return new Response(JSON.stringify(data, null, 2), {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
@@ -24,7 +21,8 @@ function jsonResponse(data: unknown, status = 200): Response {
 
 async function handleTelegram(
   request: Request,
-  env: Env
+  env: Env,
+  ctx: ExecutionContext
 ): Promise<Response> {
   const secret = request.headers.get('X-Telegram-Bot-Api-Secret-Token');
   if (env.TELEGRAM_WEBHOOK_SECRET && secret !== env.TELEGRAM_WEBHOOK_SECRET) {
@@ -49,64 +47,75 @@ async function handleTelegram(
   const text = msg.text;
 
   if (!isAuthorized(env, chatId)) {
-    await sendMessage(env, {
-      chatId,
-      text: `⛔ Chat ID ${chatId} tidak diizinkan.`,
-    });
+    ctx.waitUntil(
+      sendMessage(env, {
+        chatId,
+        text: `⛔ Chat ID ${chatId} tidak diizinkan.`,
+      })
+    );
     return jsonResponse({ ok: true });
   }
 
-  const ctx: CommandContext = {
-    chatId,
-    userId,
-    username,
-    text,
-    args: [],
-    env,
-  };
+  ctx.waitUntil(
+    (async () => {
+      try {
+        await sendTyping(env, chatId);
 
-  try {
-    const reply = await route(env, ctx);
+        const commandCtx: CommandContext = {
+          chatId,
+          userId,
+          username,
+          text,
+          args: [],
+          env,
+        };
 
-    const MAX = 4000;
-    if (reply.length <= MAX) {
-      await sendMessage(env, {
-        chatId,
-        text: reply,
-        parseMode: 'HTML',
-      });
-    } else {
-      const parts: string[] = [];
-      let current = '';
-      for (const line of reply.split('\n')) {
-        if (current.length + line.length + 1 > MAX) {
-          parts.push(current);
-          current = line;
+        const reply = await route(env, commandCtx);
+
+        const MAX = 4000;
+        if (reply.length <= MAX) {
+          await sendMessage(env, {
+            chatId,
+            text: reply,
+            parseMode: 'HTML',
+          });
         } else {
-          current = current ? `${current}\n${line}` : line;
-        }
-      }
-      if (current) parts.push(current);
+          const parts: string[] = [];
+          let current = '';
 
-      for (let i = 0; i < parts.length; i++) {
-        const header =
-          parts.length > 1 ? `<i>[${i + 1}/${parts.length}]</i>\n` : '';
+          for (const line of reply.split('\n')) {
+            if (current.length + line.length + 1 > MAX) {
+              parts.push(current);
+              current = line;
+            } else {
+              current = current ? `${current}\n${line}` : line;
+            }
+          }
+          if (current) parts.push(current);
+
+          for (let i = 0; i < parts.length; i++) {
+            const header =
+              parts.length > 1
+                ? `<i>[${i + 1}/${parts.length}]</i>\n`
+                : '';
+            await sendMessage(env, {
+              chatId,
+              text: header + parts[i],
+              parseMode: 'HTML',
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[Webhook] processing error:', err);
+        const errMsg = (err as Error).message ?? 'unknown';
         await sendMessage(env, {
           chatId,
-          text: header + parts[i],
+          text: `❌ Error: <code>${errMsg.slice(0, 200)}</code>`,
           parseMode: 'HTML',
         });
       }
-    }
-  } catch (err) {
-    console.error('[Webhook] processing error:', err);
-    const errMsg = (err as Error).message ?? 'unknown';
-    await sendMessage(env, {
-      chatId,
-      text: `❌ Error: <code>${errMsg.slice(0, 200)}</code>`,
-      parseMode: 'HTML',
-    });
-  }
+    })()
+  );
 
   return jsonResponse({ ok: true });
 }
@@ -189,11 +198,23 @@ async function handleSetup(env: Env, url: URL): Promise<Response> {
     return jsonResponse({ ok: true, reported: true });
   }
 
+  if (action === 'cleanup') {
+    const [logs, limits] = await Promise.all([
+      cleanupOldLogs(env, 7),
+      cleanupRateLimits(env),
+    ]);
+    return jsonResponse({ ok: true, logsDeleted: logs, limitsDeleted: limits });
+  }
+
   return jsonResponse({ error: 'unknown action' }, 400);
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -211,9 +232,18 @@ export default {
     }
 
     if (path === '/webhook' && request.method === 'POST') {
-      return handleTelegram(request, env);
+      return handleTelegram(request, env, ctx);
     }
 
     return new Response('Not Found', { status: 404 });
+  },
+
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext
+  ): Promise<void> {
+    ctx.waitUntil(runCronReport(env));
+    ctx.waitUntil(cleanupOldLogs(env, 7).then(() => undefined));
   },
 } satisfies ExportedHandler<Env>;
